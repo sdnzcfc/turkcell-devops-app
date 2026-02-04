@@ -1,3 +1,6 @@
 fastapi
+jinja2
+prometheus-client
+prometheus-fastapi-instrumentator
 uvicorn
-
+python-multipart

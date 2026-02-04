@@ -1,12 +1,92 @@
-version: "3.8"
 
 services:
   app:
-    build:
+    build:  
       context: .
       dockerfile: docker/Dockerfile
-    ports:
-      - "8000:8000"
     volumes:
-      - ./app/logs:/app/logs
+      - ./logs/app:/var/log/app
+    expose:
+      - "8000"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
+  prometheus:
+    image: prom/prometheus:latest
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--web.route-prefix=/prometheus"
+      - "--web.external-url=/prometheus"
+      - "--storage.tsdb.retention.time=180d"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      - app
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  grafana:
+    image: grafana/grafana:latest
+    depends_on:
+      - prometheus
+    environment:
+      GF_SERVER_ROOT_URL: "%(protocol)s://%(domain)s/grafana/"
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    logging:   
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      - app
+      - grafana 
+      - prometheus
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  #  LOG ROTATION SIDECAR
+  logrotate:
+    image: alpine:3.20
+    depends_on:
+      - app
+    volumes:
+      - ./logs/app:/var/log/app
+      - ./logrotate/app-requests:/etc/logrotate.d/app-requests:ro
+      - logrotate_state:/var/lib
+    command: >
+      sh -lc '
+        apk add --no-cache logrotate;
+        while true; do
+          logrotate -s /var/lib/logrotate.status /etc/logrotate.d/app-requests;
+          sleep 60;
+        done
+      '
+volumes:
+  grafana_data:
+  prometheus_data:
+  logrotate_state:

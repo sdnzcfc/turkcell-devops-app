@@ -1,0 +1,13 @@
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: "fastapi"
+    metrics_path: /metrics
+
+    # Discover all app replicas via Docker DNS (scale app=2,3,...)
+    dns_sd_configs:
+      - names:
+          - app
+        type: A
+        port: 8000
