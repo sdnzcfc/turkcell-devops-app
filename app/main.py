@@ -383,13 +383,7 @@ async def index():
 
             <div>
               <label for="times">Kaç kez gönderilsin?</label>
-              <select id="times">
-                <option value="1">1</option>
-                <option value="5">5</option>
-                <option value="10" selected>10</option>
-                <option value="25">25</option>
-                <option value="50">50</option>
-              </select>
+              <input id="times" type="number" min="1" step="1" value="10" />
             </div>
           </div>
 
